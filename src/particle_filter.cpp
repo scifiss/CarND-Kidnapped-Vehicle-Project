@@ -70,15 +70,15 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
         double theta = particles[i].theta;
         if (fabs(yaw_rate)>0.001)
         {
-            particles[i].x += velocity/yaw_rate * (sin(theta + yaw_rate*delta_t)-sin(theta))+ dist_x(gen)*delta_t;
-            particles[i].y += velocity/yaw_rate * (cos(theta) - cos(theta+ yaw_rate*delta_t)) + dist_y(gen)*delta_t;
-            particles[i].theta += yaw_rate*delta_t+ dist_theta(gen)*delta_t;
+            particles[i].x += velocity/yaw_rate * (sin(theta + yaw_rate*delta_t)-sin(theta))+ dist_x(gen);
+            particles[i].y += velocity/yaw_rate * (cos(theta) - cos(theta+ yaw_rate*delta_t)) + dist_y(gen);
+            particles[i].theta += yaw_rate*delta_t+ dist_theta(gen);
         }
         else
         {
-            particles[i].x += velocity*cos(theta)*delta_t+ dist_x(gen)*delta_t;
-            particles[i].y += velocity*sin(theta)*delta_t+ dist_y(gen)*delta_t;
-            particles[i].theta  = theta + dist_theta(gen)*delta_t;
+            particles[i].x += velocity*cos(theta)*delta_t+ dist_x(gen);
+            particles[i].y += velocity*sin(theta)*delta_t+ dist_y(gen);
+            particles[i].theta  = theta + dist_theta(gen);
 
         }
 
@@ -180,54 +180,59 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 
         double pdftotal=1.0;
-
-        for (int j=0;j<availmarks_map.size();j++)
+        if (availmarks_map.size()>0)
         {
-            double pdfi;
-            // in case different observations share one map landmark
-            // detected observations are arithmetic averaged to get the middle position
-            //  if 3 obs share one landmark
-            // x = (x1+x2+x3)/3, y = (y1+y2+y3)/3
-            int ndetected=0; // number of observed landmarks for each map landmark,
-            double obs_x=0.0, obs_y=0.0;
-            for (int k=0;k<observ_map.size();k++)
+
+            for (int j=0;j<availmarks_map.size();j++)
             {
-                if (availmarks_map[j].id == observ_map[k].id)
+                double pdfi;
+                // in case different observations share one map landmark
+                // detected observations are arithmetic averaged to get the middle position
+                //  if 3 obs share one landmark
+                // x = (x1+x2+x3)/3, y = (y1+y2+y3)/3
+                int ndetected=0; // number of observed landmarks for each map landmark,
+                double obs_x=0.0, obs_y=0.0;
+                for (int k=0;k<observ_map.size();k++)
                 {
-                    ndetected=ndetected+1;
-                    //if (ndetected>0)
+                    if (availmarks_map[j].id == observ_map[k].id)
                     {
-                    //    cout<<availmarks_map[j].id<<":"<<endl;
-                    //    cout << availmarks_map[j].x<<","<<observ_map[k].x<<endl;
-                    //    cout << availmarks_map[j].y<<","<<observ_map[k].y<<endl;
+                        ndetected=ndetected+1;
+                        //if (ndetected>0)
+                        {
+                        //    cout<<availmarks_map[j].id<<":"<<endl;
+                        //    cout << availmarks_map[j].x<<","<<observ_map[k].x<<endl;
+                        //    cout << availmarks_map[j].y<<","<<observ_map[k].y<<endl;
+                        }
+                        obs_x += observ_map[k].x;
+                        obs_y += observ_map[k].y;
+
                     }
-                    obs_x += observ_map[k].x;
-                    obs_y += observ_map[k].y;
-
                 }
-            }
-            if (ndetected>0)
-            {
-                if (ndetected>1)
+                if (ndetected>0)
                 {
-                    //cout << "ndetected: " <<  ndetected << endl;
-                    obs_x /= ndetected;
-                    obs_y /= ndetected;
-                    //cout << obs_x << ","<<obs_y<<endl;
+                    if (ndetected>1)
+                    {
+                        //cout << "ndetected: " <<  ndetected << endl;
+                        obs_x /= ndetected;
+                        obs_y /= ndetected;
+                        //cout << obs_x << ","<<obs_y<<endl;
 
+                    }
+                    pdfi = normalIID2d_pdf(obs_x, obs_y, availmarks_map[j].x, availmarks_map[j].y,
+                                           std_landmark[0], std_landmark[1]);
+//                    cout <<obs_x<<","<< obs_y<<","<<  availmarks_map[j].x<<","<<  availmarks_map[j].y<<
+//                                           ":"<<pdfi<<endl;
+                    pdftotal *= pdfi;
                 }
-                pdfi = normalIID2d_pdf(obs_x, obs_y, availmarks_map[j].x, availmarks_map[j].y,
-                                       std_landmark[0], std_landmark[1]);
-//                cout <<obs_x<<","<< obs_y<<","<<  availmarks_map[j].x<<","<<  availmarks_map[j].y<<
-//                                       ":"<<pdfi<<endl;
-                pdftotal *= pdfi;
-            }
 
+            }
         }
+        else // if the particle sees no landmark within sensor range, it's unlikely to be the car's position
+            pdftotal = 1e-10;
 
         particles[i].weight = pdftotal;
         weights[i] = pdftotal;
-        cout<< "weight" << i <<":"<<pdftotal<<endl;
+        //cout<< "weight" << i <<":"<<pdftotal<<endl;
     }
 
 }
